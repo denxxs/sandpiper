@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Sandpiper maskable icon</title>
+<rect width="256" height="256" fill="#16161A"/>
+<g transform="translate(128 128) scale(0.5) translate(-137 -128)"><path fill="#F4F2EE" fill-rule="evenodd" d="M62 32H138L186 80V196A28 28 0 0 1 158 224H62A28 28 0 0 1 34 196V60A28 28 0 0 1 62 32Z M118 69A15 15 0 1 0 118 99A15 15 0 1 0 118 69Z M75 148A11 11 0 0 0 75 170H139A11 11 0 0 0 139 148Z"/>
+<path fill="#E4572E" d="M144.6 41.4L240 52.85L173.77 70.6Z"/></g>
+</svg>

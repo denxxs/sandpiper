@@ -1,0 +1,11 @@
+Sandpiper — Copyright (C) 2026 Dennis Sagayanathan.
+
+Licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only). See LICENSE.
+
+If you run a modified version of Sandpiper as a service that people use over a network, the
+AGPL requires you to offer those people the source code of your modified version.
+
+The Sandpiper name and logo (the files in brand/ and the mark drawn by src/components/Logo.tsx) identify
+this project and are not licensed under the AGPL. You may use them to refer to Sandpiper. A modified version
+you distribute or run for others should use its own name and logo, so people can tell it apart from the
+original. The wordmark is drawn from Inter, by Rasmus Andersson (SIL Open Font License 1.1).

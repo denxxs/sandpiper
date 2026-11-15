@@ -1,0 +1,47 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sandpiper",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+
+  // Where Sandpiper is served. Out of the box it gets an address on workers.dev
+  // (https://sandpiper.<your-account>.workers.dev). To serve it on your own domain instead, add the domain to
+  // your Cloudflare account, then uncomment "routes" with your domain and set "workers_dev" to false:
+  //   "routes": [{ "pattern": "notes.example.com", "custom_domain": true }],
+  "workers_dev": true,
+  "preview_urls": false,
+
+  // The built web app. Everything else goes to worker/index.ts.
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/auth/*", "/collab/*", "/uploads/*", "/mcp", "/mcp/*", "/oauth/*", "/.well-known/*"]
+  },
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "DOCS", "class_name": "YDocRoom" },
+      { "name": "SEARCH", "class_name": "SearchIndex" },
+      { "name": "FILES", "class_name": "FileStore" },
+      { "name": "AUTH", "class_name": "AuthStore" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["YDocRoom", "SearchIndex", "FileStore"] },
+    { "tag": "v2", "new_sqlite_classes": ["AuthStore"] }
+  ],
+
+  // Sign-in.
+  // GOOGLE_CLIENT_ID: the Client ID of your Google OAuth client (it isn't secret). The client secret is stored
+  //   separately:  npx wrangler secret put GOOGLE_CLIENT_SECRET
+  // INITIAL_MEMBERS: who may sign in the very first time Sandpiper runs, as "email:role" pairs separated by commas
+  //   (role is owner or member; exactly one owner). It's read once; after that, manage people in the app
+  //   (Settings → App → Who can sign in).
+  "vars": {
+    "GOOGLE_CLIENT_ID": "",
+    "INITIAL_MEMBERS": "you@example.com:owner"
+  },
+
+  "observability": { "enabled": true }
+}

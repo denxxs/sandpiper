@@ -1,0 +1,51 @@
+{
+  "name": "sandpiper",
+  "version": "0.1.0",
+  "description": "A self-hosted, real-time collaborative workspace: block editor, nested pages and databases, with an MCP server for AI apps. Runs on Cloudflare free plan.",
+  "license": "AGPL-3.0-only",
+  "author": "Dennis Sagayanathan",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\"",
+    "dev": "concurrently -k -n cloud,web -c blue,green \"wrangler dev --port 8799 --local-upstream localhost:5199 --upstream-protocol http --var LOCAL_DEV:1\" \"vite\"",
+    "predev:demo": "node -e \"require('fs').mkdirSync('dist',{recursive:true})\"",
+    "dev:demo": "concurrently -k -n signin,cloud,web -c magenta,blue,green \"node scripts/dev-signin.mjs\" \"wrangler dev --port 8799 --local-upstream localhost:5199 --upstream-protocol http --var LOCAL_DEV:1 --var OAUTH_MOCK_URL:http://127.0.0.1:9911 --var GOOGLE_CLIENT_ID:local-demo\" \"vite\"",
+    "build": "npm run typecheck && vite build",
+    "deploy": "npm run build && wrangler deploy",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p worker"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261112.1",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "concurrently": "^10.0.7",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "wrangler": "^4.161.0"
+  },
+  "dependencies": {
+    "@blocknote/core": "^0.57.0",
+    "@blocknote/mantine": "^0.57.0",
+    "@blocknote/react": "^0.57.0",
+    "@hpcc-js/wasm-graphviz": "1.30.0",
+    "@mantine/core": "^9.8.0",
+    "@mantine/hooks": "^9.8.0",
+    "@simplewebauthn/browser": "^14.0.0",
+    "@simplewebauthn/server": "^14.1.0",
+    "katex": "0.19.1",
+    "lib0": "^0.2.120",
+    "lucide-react": "^1.72.0",
+    "marked": "18.1.2",
+    "mermaid": "12.2.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "shiki": "4.5.0",
+    "y-prosemirror": "^1.3.7",
+    "y-protocols": "^1.0.7",
+    "y-websocket": "^3.1.0",
+    "yjs": "^13.6.33"
+  }
+}
