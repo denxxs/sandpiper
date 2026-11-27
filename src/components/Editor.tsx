@@ -265,6 +265,9 @@ export function PageEditor(props: {
 }) {
   const [conn, setConn] = useState<Conn | null>(null);
   const [synced, setSynced] = useState(false);
+  // Set when the page hasn't loaded after a while, so the person gets a message and a way to retry.
+  const [stalled, setStalled] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const doc = new Y.Doc();
@@ -273,19 +276,32 @@ export function PageEditor(props: {
     provider.on("sync", onSync);
     setConn({ doc, provider });
     setSynced(false);
+    setStalled(false);
+    const timer = setTimeout(() => setStalled(true), 10_000);
     return () => {
+      clearTimeout(timer);
       provider.destroy();
       doc.destroy();
     };
-  }, [props.pageId]);
+  }, [props.pageId, attempt]);
 
   if (!conn || !synced) {
     return (
-      <div className="editor-skeleton" aria-busy="true">
-        <div style={{ width: "70%" }} />
-        <div style={{ width: "92%" }} />
-        <div style={{ width: "55%" }} />
-      </div>
+      <>
+        <div className="editor-skeleton" aria-busy="true">
+          <div style={{ width: "70%" }} />
+          <div style={{ width: "92%" }} />
+          <div style={{ width: "55%" }} />
+        </div>
+        {stalled && (
+          <div className="muted small pad" role="alert">
+            This page can't be loaded right now. Check your connection.{" "}
+            <button className="btn-outline small" onClick={() => setAttempt((n) => n + 1)}>
+              Try again
+            </button>
+          </div>
+        )}
+      </>
     );
   }
   return <EditorInner key={props.pageId} conn={conn} {...props} />;

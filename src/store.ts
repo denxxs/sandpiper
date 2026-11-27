@@ -630,10 +630,28 @@ export function restorePage(id: string) {
     }
   });
 }
-export function deleteForever(id: string) {
-  const ids = [id, ...descendantsOf(getPages(), id)];
-  wsDoc.transact(() => ids.forEach((i) => yPages.delete(i)));
-  for (const i of ids) fetch(`/api/doc?room=${roomName("page-" + i)}`, { method: "DELETE" }).catch(() => {});
+/**
+ * Deletes a page and everything inside it, content first. A page whose content couldn't be deleted stays in the
+ * trash (with the pages above it), so deleting it again can finish the job. Resolves to false if any were left.
+ */
+export async function deleteForever(id: string): Promise<boolean> {
+  const pages = getPages();
+  const ids = [id, ...descendantsOf(pages, id)];
+  const results = await Promise.all(
+    ids.map((i) =>
+      fetch(`/api/doc?room=${roomName("page-" + i)}`, { method: "DELETE" })
+        .then((res) => res.ok)
+        .catch(() => false),
+    ),
+  );
+  const keep = new Set<string>();
+  ids.forEach((i, n) => {
+    if (results[n]) return;
+    // Keep the page, and the pages above it up to the one being deleted, so it stays reachable in the trash.
+    for (let cur: string | null = i; cur && !keep.has(cur); cur = cur === id ? null : (pages[cur]?.parentId ?? null)) keep.add(cur);
+  });
+  wsDoc.transact(() => ids.forEach((i) => !keep.has(i) && yPages.delete(i)));
+  return keep.size === 0;
 }
 
 // ---------------------------------------------------------------- nesting depth
@@ -700,11 +718,25 @@ export async function duplicatePage(id: string): Promise<string | null> {
   const pages = getPages();
   const root = pages[id];
   if (!root) return null;
-  const ids = [id, ...descendantsOf(pages, id)].filter((i) => !pages[i].trashed || i === id);
+  // Pages in the trash aren't copied, nor anything inside them.
+  const inTrash = (i: string) => {
+    for (let cur: string | null = i; cur && cur !== id; cur = pages[cur]?.parentId ?? null) if (pages[cur]?.trashed) return true;
+    return false;
+  };
+  const ids = [id, ...descendantsOf(pages, id)].filter((i) => !inTrash(i));
   const map = new Map(ids.map((i) => [i, nid()]));
-  await Promise.all(
-    ids.map((i) => fetch(`/api/copy?from=${roomName("page-" + i)}&to=${roomName("page-" + map.get(i))}`, { method: "POST" }).catch(() => {})),
+  const copied = await Promise.all(
+    ids.map((i) =>
+      fetch(`/api/copy?from=${roomName("page-" + i)}&to=${roomName("page-" + map.get(i))}`, { method: "POST" })
+        .then((res) => res.ok)
+        .catch(() => false),
+    ),
   );
+  // All or nothing: a copy with pages missing their content would look like it worked. Clear away what was copied.
+  if (copied.some((ok) => !ok)) {
+    ids.forEach((i, n) => copied[n] && fetch(`/api/doc?room=${roomName("page-" + map.get(i))}`, { method: "DELETE" }).catch(() => {}));
+    return null;
+  }
   wsDoc.transact(() => {
     for (const i of ids) {
       const p = pages[i];

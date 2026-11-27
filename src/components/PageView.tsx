@@ -233,7 +233,7 @@ export function Topbar(props: { page: Page | null; sidebarOpen: boolean; onOpenS
                     if (id) {
                       toast(`Duplicated "${pageTitle(page)}"`);
                       go(id);
-                    }
+                    } else toast(`Couldn't duplicate "${pageTitle(page)}". Try again.`);
                   }}
                 />
                 {!page.isRow && (
@@ -444,7 +444,7 @@ export function PageView(props: { pageId: string; peek?: boolean; theme: "light"
               className="btn-outline small"
               onClick={() => {
                 if (confirm("Permanently delete this page and everything inside it? This can't be undone.")) {
-                  deleteForever(pageId);
+                  deleteForever(pageId).then((ok) => !ok && toast("Some pages couldn't be deleted and are still in the trash. Try again."));
                   go(null);
                 }
               }}

@@ -999,7 +999,12 @@ export const WITHIN: { id: string; label: string }[] = [
 ];
 function dayOffset(now: number, days: number, months = 0): string {
   const d = new Date(now);
-  return ymd(new Date(d.getFullYear(), d.getMonth() + months, d.getDate() + days));
+  if (!months) return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+  return ymd(clampedDay(d.getFullYear(), d.getMonth() + months, d.getDate()));
+}
+/** A day in a month, stopping at the month's last day (Mar 31 a month back is Feb 28, not Mar 3). */
+function clampedDay(y: number, m: number, day: number): Date {
+  return new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()));
 }
 /** A filter's date: YYYY-MM-DD as written, or a relative one worked out against now. */
 export function resolveDay(v: string, now: number): string {
@@ -1045,9 +1050,9 @@ export function withinRange(v: string, now: number): [string, string] {
     case "this_year":
       return [`${y}-01-01`, `${y}-12-31`];
     case "past_year":
-      return [ymd(new Date(y - 1, m, d.getDate())), dayOffset(now, 0)];
+      return [ymd(clampedDay(y - 1, m, d.getDate())), dayOffset(now, 0)];
     case "next_year":
-      return [dayOffset(now, 0), ymd(new Date(y + 1, m, d.getDate()))];
+      return [dayOffset(now, 0), ymd(clampedDay(y + 1, m, d.getDate()))];
     default:
       return ["0000-00-00", "9999-12-31"];
   }
@@ -1449,7 +1454,10 @@ export function groupRows(rows: Page[], prop: DbProperty, view: Pick<DbView, "gr
   if (prop.type === "checkbox") list = list.filter((g) => g.group.key !== "");
   const fixedOrder = ["select", "multi_select", "status", "checkbox", "person"].includes(prop.type);
   if (!fixedOrder) {
-    const sorted = list.filter((g) => g.group.key !== "").sort((a, b) => a.group.key.localeCompare(b.group.key, undefined, { numeric: true }));
+    // Number groups by value (-10 before -5, 1.25 before 1.5); everything else by its text.
+    const byKey = (a: { group: Group }, b: { group: Group }) =>
+      prop.type === "number" ? Number(a.group.key) - Number(b.group.key) : a.group.key.localeCompare(b.group.key, undefined, { numeric: true });
+    const sorted = list.filter((g) => g.group.key !== "").sort(byKey);
     list = [list.find((g) => g.group.key === "")!, ...sorted];
   }
   const hidden = new Set(view.hiddenGroups ?? []);
@@ -1591,7 +1599,9 @@ export function convertValues(
           next = from === "number" && typeof raw === "number" ? String(raw) : text || undefined;
           break;
         case "number": {
-          const n = typeof raw === "number" ? raw : parseFloat(String(text).replace(/[^\d.eE+-]/g, ""));
+          // Only text that is a number as a whole ("1,234.5", "$20", "50%"); "3 to 5" or a date isn't one.
+          const t = String(text).replace(/,/g, "").trim().replace(/^[^\d.+-]+|[^\d.]+$/g, "");
+          const n = typeof raw === "number" ? raw : t ? Number(t) : NaN;
           next = Number.isFinite(n) ? n : undefined;
           break;
         }
@@ -1600,12 +1610,13 @@ export function convertValues(
           break;
         case "select":
         case "status": {
-          const t = String(text).split(",")[0]?.trim();
+          // A number becomes one option with its plain value; its formatted text ("1,234.5") would split at the comma.
+          const t = from === "number" && typeof raw === "number" ? String(raw) : String(text).split(",")[0]?.trim();
           next = t ? optionFor(t) : undefined;
           break;
         }
         case "multi_select": {
-          const ids = String(text)
+          const ids = (from === "number" && typeof raw === "number" ? String(raw) : String(text))
             .split(",")
             .map((x) => x.trim())
             .filter(Boolean)
@@ -1615,6 +1626,8 @@ export function convertValues(
         }
         case "date": {
           if (from === "created_time" || from === "last_edited_time") next = ymd(from === "created_time" ? r.createdAt : r.updatedAt);
+          // A number isn't a date (7 would read as July 2001).
+          else if (from === "number") next = undefined;
           else {
             const d = parseDateText(String(raw ?? text));
             next = d ? ymd(d.start) : undefined;
