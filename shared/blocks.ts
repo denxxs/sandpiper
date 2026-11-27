@@ -106,6 +106,6 @@ export const NOT_HIGHLIGHTED = new Set(["text", "plantuml", "puml", "dot", "grap
 /** A code block language as the language picker lists it: its own id, the id it is an alias of, or plain text. */
 export function codeLanguageId(lang: string): string {
   const l = String(lang ?? "").trim().toLowerCase();
-  if (CODE_LANGUAGES[l]) return l;
+  if (Object.hasOwn(CODE_LANGUAGES, l)) return l;
   return Object.entries(CODE_LANGUAGES).find(([, v]) => v.aliases?.includes(l))?.[0] ?? "text";
 }

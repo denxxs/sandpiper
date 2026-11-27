@@ -54,7 +54,7 @@ export function notionCodeBlock() {
         const listed = codeLanguageId(lang);
         // BlockNote's picker throws for a language it doesn't list, so draw it with the listed one.
         const drawn = impl.render(listed === lang ? block : { ...block, props: { ...block.props, language: listed } }, editor);
-        const diagram = DIAGRAM_CODE[lang.toLowerCase()];
+        const diagram = Object.hasOwn(DIAGRAM_CODE, lang.toLowerCase()) ? DIAGRAM_CODE[lang.toLowerCase()] : undefined;
         if (!diagram) return drawn;
 
         const pre = (drawn.dom as DocumentFragment).querySelector?.("pre") as HTMLElement | null;

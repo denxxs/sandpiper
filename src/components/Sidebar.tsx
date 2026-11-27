@@ -116,6 +116,7 @@ export function PageMenu({ page, close }: { page: Page; close: () => void }) {
           close();
           const id = await duplicatePage(page.id);
           if (id) toast(`Duplicated "${pageTitle(page)}"`);
+          else toast(`Couldn't duplicate "${pageTitle(page)}". Try again.`);
           if (id && !page.isRow) go(id);
         }}
       />
@@ -327,7 +328,7 @@ function TrashPanel({ close }: { close: () => void }) {
             <button
               className="icon-btn tiny"
               title="Delete permanently"
-              onClick={() => confirm(`Permanently delete "${pageTitle(p)}" and everything inside it? This can't be undone.`) && deleteForever(p.id)}
+              onClick={() => confirm(`Permanently delete "${pageTitle(p)}" and everything inside it? This can't be undone.`) && deleteForever(p.id).then((ok) => !ok && toast("Some pages couldn't be deleted and are still in the trash. Try again."))}
             >
               <Trash2 size={14} />
             </button>

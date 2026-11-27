@@ -81,8 +81,9 @@ function lex(src: string): Tok[] {
       i = j + 1;
       continue;
     }
-    if (/[A-Za-z_\u00C0-\uFFFF]/.test(c)) {
-      const m = /^[A-Za-z_\u00C0-\uFFFF][A-Za-z0-9_\u00C0-\uFFFF]*/.exec(src.slice(i))!;
+    // Letters beyond ASCII may name things, except the operator signs × ÷ ≠ ≤ ≥.
+    if (/[A-Za-z_\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u225F\u2266-\uFFFF]/.test(c)) {
+      const m = /^[A-Za-z_\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u225F\u2266-\uFFFF][A-Za-z0-9_\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u225F\u2266-\uFFFF]*/.exec(src.slice(i))!;
       out.push({ t: "id", v: m[0], at: i });
       i += m[0].length;
       continue;
@@ -282,20 +283,31 @@ const UNITS: Record<string, string> = {
   second: "seconds", seconds: "seconds", s: "seconds",
   millisecond: "milliseconds", milliseconds: "milliseconds", ms: "milliseconds",
 };
-const unitOf = (u: FValue): string => UNITS[String(u)] ?? UNITS[String(u).toLowerCase()] ?? err(`"${u}" isn't a unit. Use years, quarters, months, weeks, days, hours, minutes or seconds.`);
+const unitOf = (u: FValue): string => ownGet(UNITS, String(u)) ?? ownGet(UNITS, String(u).toLowerCase()) ?? err(`"${u}" isn't a unit. Use years, quarters, months, weeks, days, hours, minutes or seconds.`);
+
+/** A table's own entry for a key, never one inherited from Object.prototype ("constructor", "__proto__"…). */
+function ownGet<T>(table: Record<string, T>, key: string): T | undefined {
+  return Object.hasOwn(table, key) ? table[key] : undefined;
+}
+
+/** Moves a date by whole months, keeping the day of the month but stopping at the month's last day (Jan 31 + 1 month = Feb 28). */
+function addMonths(d: Date, n: number): number {
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + n);
+  d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+  return d.getTime();
+}
 
 export function addTo(ms: number, n: number, unit: string): number {
   const d = new Date(ms);
   switch (unit) {
     case "years":
-      d.setFullYear(d.getFullYear() + n);
-      return d.getTime();
+      return addMonths(d, 12 * n);
     case "quarters":
-      d.setMonth(d.getMonth() + 3 * n);
-      return d.getTime();
+      return addMonths(d, 3 * n);
     case "months":
-      d.setMonth(d.getMonth() + n);
-      return d.getTime();
+      return addMonths(d, n);
     case "weeks":
       return ms + n * 7 * DAY;
     case "days":
@@ -314,8 +326,13 @@ export function addTo(ms: number, n: number, unit: string): number {
 function between(a: number, b: number, unit: string): number {
   const da = new Date(a);
   const db = new Date(b);
-  const months = (da.getFullYear() - db.getFullYear()) * 12 + (da.getMonth() - db.getMonth()) - (da.getDate() < db.getDate() ? 1 : 0);
+  // Whole months: a month counts only once the day of the month is reached, in either direction.
+  let months = (da.getFullYear() - db.getFullYear()) * 12 + (da.getMonth() - db.getMonth());
+  if (months > 0 && da.getDate() < db.getDate()) months--;
+  else if (months < 0 && da.getDate() > db.getDate()) months++;
   const trunc = (x: number) => (x < 0 ? Math.ceil(x) : Math.floor(x));
+  // Days and weeks by the calendar, so a day with a daylight-saving change (23 or 25 hours) is still one day.
+  const wall = (x: number, d: Date) => x - d.getTimezoneOffset() * 60_000;
   switch (unit) {
     case "years":
       return trunc(months / 12);
@@ -324,9 +341,9 @@ function between(a: number, b: number, unit: string): number {
     case "months":
       return months;
     case "weeks":
-      return trunc((a - b) / (7 * DAY));
+      return trunc((wall(a, da) - wall(b, db)) / (7 * DAY));
     case "days":
-      return trunc((a - b) / DAY);
+      return trunc((wall(a, da) - wall(b, db)) / DAY);
     case "hours":
       return trunc((a - b) / 3_600_000);
     case "minutes":
@@ -847,7 +864,7 @@ function evalNode(n: Node, ev: Ev, scope: Scope): FValue {
       return null;
     }
     case "call": {
-      const fn = FNS[n.name] ?? FNS[Object.keys(FNS).find((k) => k.toLowerCase() === n.name.toLowerCase()) ?? ""];
+      const fn = ownGet(FNS, n.name) ?? ownGet(FNS, Object.keys(FNS).find((k) => k.toLowerCase() === n.name.toLowerCase()) ?? "");
       if (!fn) return err(`There's no function called ${n.name}().`);
       return fn(n.args, ev, scope);
     }
